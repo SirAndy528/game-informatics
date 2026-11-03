@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Informatika Quest</title>
+
+  <!-- Retro Pixel Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- SheetJS (xlsx) for Exporting Player Data to Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            pixel: ['"Press Start 2P"', 'cursive'],
+            vt: ['"VT323"', 'monospace']
+          },
+          animation: {
+            float: "float 3s ease-in-out infinite",
+            pulseSlow: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite"
+          },
+          keyframes: {
+            float: {
+              "0%, 100%": { transform: "translateY(0)" },
+              "50%": { transform: "translateY(-8px)" }
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #090a16;
+      color: #fff;
+      font-family: 'Press Start 2P', cursive;
+      overflow: hidden;
+    }
+    /* CRT Scanline Effect */
+    .crt::after {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      z-index: 40;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+    /* Custom Scrollbar for Modal */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #111827;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #06b6d4;
+      border-radius: 4px;
+    }
+    .cyber-border {
+      border: 2px solid #06b6d4;
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.4), inset 0 0 10px rgba(6, 182, 212, 0.2);
+    }
+    .cyber-button {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border: 2px solid #38bdf8;
+      box-shadow: 0 4px 0 #0284c7;
+      transition: all 0.1s ease;
+    }
+    .cyber-button:active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #0284c7;
+    }
+  </style>
+</head>
+
+<body class="crt flex flex-col h-screen w-screen justify-between items-center bg-[#090a16] relative select-none overflow-hidden">
+
+  <!-- HUD ATAS (Persis Referensi Visual Gambar) -->
+  <header id="game-hud" class="w-full max-w-7xl px-2 pt-2 z-30 flex flex-col gap-2">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      
+      <!-- Panel Kiri: Player Avatar & Level Header -->
+      <div class="cyber-border bg-slate-900/90 rounded-lg p-2 flex items-center gap-3 min-w-[280px]">
+        <div class="w-10 h-10 rounded border-2 border-yellow-400 bg-amber-900/50 flex items-center justify-center text-xl overflow-hidden relative">
+          <!-- Pixel Avatar Icon -->
+          <div class="w-full h-full bg-slate-800 flex items-center justify-center text-amber-300">
+            🪖
+          </div>
+        </div>
+        <div class="flex flex-col">
+          <div class="flex items-center gap-2">
+            <span id="hud-player-name" class="text-[11px] text-cyan-300 font-bold truncate max-w-[120px]">Prajurit</span>
+            <span id="hud-player-class" class="text-[9px] bg-purple-900/80 text-purple-300 px-1 rounded border border-purple-500">Kelas</span>
+          </div>
+          <div id="hud-level-title" class="text-[10px] text-yellow-300 mt-1 font-pixel tracking-wide">
+            LEVEL 1: Mengenal Sistem Komputer
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel Kanan: Status Kemajuan Task -->
+      <div class="cyber-border bg-slate-900/90 rounded-lg px-4 py-2 flex items-center gap-4 text-[9px] sm:text-[10px]">
+        <div class="flex items-center gap-1">
+          <span class="text-cyan-400">📘 Materi:</span>
+          <span id="status-materi" class="text-yellow-400 font-bold">Belum</span>
+        </div>
+        <span class="text-slate-600">|</span>
+        <div class="flex items-center gap-1">
+          <span class="text-cyan-400">💻 Ujian NPC:</span>
+          <span id="status-ujian" class="text-yellow-400 font-bold">Belum Lulus</span>
+        </div>
+        <span class="text-slate-600">|</span>
+        <div class="flex items-center gap-1">
+          <span class="text-cyan-400">🔑 Kunci:</span>
+          <span id="status-kunci" class="text-red-400 font-bold">Terkunci</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Panel Tombol Kontrol & Stats HUD -->
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <!-- Stat Bar: Coins, Stars, Key, Lives -->
+      <div class="cyber-border bg-slate-900/90 rounded-lg px-3 py-1.5 flex items-center gap-4 text-[11px]">
+        <div class="flex items-center gap-1 text-amber-300">
+          <span>🪙</span> <span id="hud-coins">0</span>
+        </div>
+        <div class="flex items-center gap-1 text-yellow-400">
+          <span>⭐</span> <span id="hud-stars">0</span>
+        </div>
+        <div class="flex items-center gap-1 text-yellow-300">
+          <span>🔑</span> <span id="hud-has-key">0</span>
+        </div>
+        <div id="hud-lives-container" class="flex items-center gap-1 text-red-500 ml-2">
+          ❤️❤️❤️
+        </div>
+      </div>
+
+      <!-- Button Controls -->
+      <div class="flex items-center gap-2">
+        <button id="btn-materi" class="cyber-button px-3 py-1.5 rounded text-[10px] text-white flex items-center gap-1 hover:bg-slate-800">
+          📖 MATERI
+        </button>
+        <button id="btn-export-excel" class="cyber-button px-3 py-1.5 rounded text-[10px] text-emerald-400 flex items-center gap-1 hover:bg-slate-800">
+          📊 REKAP EXCEL
+        </button>
+        <button id="btn-sound" class="cyber-button px-2.5 py-1.5 rounded text-[11px] text-cyan-300">
+          🔊
+        </button>
+        <button id="btn-menu" class="cyber-button px-3 py-1.5 rounded text-[10px] text-amber-400 hover:bg-slate-800">
+          ☰ MENU
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- CANVAS GAME SCREEN -->
+  <main class="relative flex-1 w-full flex items-center justify-center p-2 z-10">
+    <canvas id="gameCanvas" class="cyber-border rounded-lg shadow-2xl bg-[#060814] max-w-full max-h-full"></canvas>
+  </main>
+
+  <!-- GAMEPAD VIRTUAL UNTUK MOBILE / HP ANDROID -->
+  <div id="mobile-gamepad" class="w-full max-w-5xl px-4 pb-3 z-30 flex justify-between items-center sm:hidden select-none">
+    <!-- D-PAD NAVIGASI (KIRI / KANAN / ATAS / BAWAH) -->
+    <div class="relative w-36 h-36 bg-slate-900/60 border-2 border-cyan-500/40 rounded-full flex items-center justify-center shadow-2xl backdrop-blur-sm">
+      <!-- UP (NAIK TANGGA) -->
+      <button id="pad-up" class="absolute top-1 w-11 h-11 bg-slate-800/90 active:bg-cyan-600 border border-cyan-400 rounded-t-lg text-lg text-cyan-300 flex items-center justify-center shadow">▲</button>
+      <!-- LEFT (KIRI) -->
+      <button id="pad-left" class="absolute left-1 w-11 h-11 bg-slate-800/90 active:bg-cyan-600 border border-cyan-400 rounded-l-lg text-lg text-cyan-300 flex items-center justify-center shadow">◀</button>
+      <!-- RIGHT (KANAN) -->
+      <button id="pad-right" class="absolute right-1 w-11 h-11 bg-slate-800/90 active:bg-cyan-600 border border-cyan-400 rounded-r-lg text-lg text-cyan-300 flex items-center justify-center shadow">▶</button>
+      <!-- DOWN (TURUN TANGGA) -->
+      <button id="pad-down" class="absolute bottom-1 w-11 h-11 bg-slate-800/90 active:bg-cyan-600 border border-cyan-400 rounded-b-lg text-lg text-cyan-300 flex items-center justify-center shadow">▼</button>
+      <!-- CENTER DECORATION -->
+      <div class="w-7 h-7 bg-slate-900 border border-cyan-500/30 rounded-full"></div>
+    </div>
+
+    <!-- ACTION BUTTONS (LOMPAT & BACA/INTERAKSI) -->
+    <div class="flex gap-3 items-center">
+      <!-- TOMBOL INTERAKSI (B) -->
+      <button id="pad-interact" class="w-14 h-14 bg-amber-900/80 active:bg-amber-600 border-2 border-amber-400 rounded-full text-xs text-amber-200 font-pixel flex flex-col items-center justify-center shadow-lg active:scale-95">
+        <span class="text-sm">📖</span>
+        <span class="text-[8px]">INFO</span>
+      </button>
+      <!-- TOMBOL LOMPAT (A) -->
+      <button id="pad-jump" class="w-16 h-16 bg-gradient-to-t from-cyan-700 to-cyan-500 active:from-cyan-500 active:to-cyan-400 border-2 border-cyan-300 rounded-full text-xs text-white font-pixel flex flex-col items-center justify-center shadow-xl active:scale-95">
+        <span class="text-base font-bold">▲</span>
+        <span class="text-[8px]">LOMPAT</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL 1: REGISTRASI NAMA & KELAS (START GAME) -->
+  <div id="modal-start" class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+    <div class="cyber-border bg-slate-900 p-6 rounded-xl max-w-md w-full text-center space-y-4 animate-float">
+      <div class="inline-block px-3 py-1 bg-cyan-900/80 border border-cyan-400 text-cyan-300 text-[10px] rounded">
+        🕹️ GAME PLATFORMER EDUKASI
+      </div>
+      <h1 class="text-xl sm:text-2xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-white to-amber-300 font-bold">
+        INFORMATIKA QUEST
+      </h1>
+      <p class="text-[10px] text-slate-400 leading-relaxed">
+        Selamat datang Prajurit Digital! Masukkan identitas kamu untuk memulai misi penjelajahan Laboratorium Informatika.
+      </p>
+
+      <form id="form-start" class="space-y-3 text-left">
+        <div>
+          <label class="text-[10px] text-cyan-300 block mb-1">NAMA LENGKAP:</label>
+          <input type="text" id="input-name" required placeholder="Contoh: Alex Pratama" class="w-full bg-slate-800 border-2 border-cyan-500 rounded p-2 text-xs text-white focus:outline-none focus:border-yellow-400">
+        </div>
+        <div>
+          <label class="text-[10px] text-cyan-300 block mb-1">KELAS / ROMBEL:</label>
+          <input type="text" id="input-class" required placeholder="Contoh: X IPA 1 / 7B" class="w-full bg-slate-800 border-2 border-cyan-500 rounded p-2 text-xs text-white focus:outline-none focus:border-yellow-400">
+        </div>
+        <button type="submit" class="w-full py-3 mt-2 cyber-button rounded text-xs text-yellow-300 font-bold tracking-wider hover:bg-slate-700">
+          🚀 MULAI PETUALANGAN
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: MATERI PEMBELAJARAN INFORMATIKA -->
+  <div id="modal-materi" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 hidden">
+    <div class="cyber-border bg-slate-900 rounded-xl p-5 max-w-2xl w-full max-h-[85vh] flex flex-col justify-between">
+      <div class="flex items-center justify-between border-b border-cyan-500/40 pb-3">
+        <h2 id="materi-title" class="text-xs sm:text-sm text-cyan-300 font-bold">📖 MATERI INFORMATIKA</h2>
+        <button id="close-materi-btn" class="text-red-400 hover:text-red-300 font-bold text-sm">✖</button>
+      </div>
+
+      <div id="materi-body" class="my-4 font-vt text-lg sm:text-xl text-slate-200 leading-relaxed overflow-y-auto pr-2 space-y-3">
+        <!-- Materi Content Dynamic -->
+      </div>
+
+      <div class="pt-3 border-t border-cyan-500/40 flex justify-end">
+        <button id="btn-read-done" class="cyber-button px-4 py-2 rounded text-[10px] text-emerald-400 font-bold hover:bg-slate-800">
+          SAYA SUDAH MEMAHAMI MATERI ✅
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: KUIS / UJIAN NPC PROF. BIT -->
+  <div id="modal-quiz" class="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 hidden">
+    <div class="cyber-border bg-slate-900 rounded-xl p-5 max-w-xl w-full space-y-4">
+      <div class="flex items-center gap-3 border-b border-purple-500/40 pb-3">
+        <div class="w-10 h-10 rounded border border-purple-400 bg-purple-950 flex items-center justify-center text-xl">
+          👨‍🏫
+        </div>
+        <div>
+          <h3 class="text-xs text-purple-300 font-bold">UJIAN PROF. BIT</h3>
+          <p class="text-[9px] text-slate-400">Jawab dengan benar untuk mendapatkan KUNCI Portal!</p>
+        </div>
+      </div>
+
+      <p id="quiz-question" class="text-xs sm:text-sm text-yellow-300 leading-relaxed font-vt text-xl">
+        Soal kuis akan muncul di sini...
+      </p>
+
+      <div id="quiz-options" class="space-y-2 text-xs">
+        <!-- Choices generated dynamically -->
+      </div>
+
+      <div id="quiz-feedback" class="hidden p-2 rounded text-[10px] text-center font-bold"></div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: MENU & PAUSE / REKAP EXCEL -->
+  <div id="modal-menu" class="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 hidden">
+    <div class="cyber-border bg-slate-900 p-6 rounded-xl max-w-sm w-full text-center space-y-3">
+      <h2 class="text-sm text-yellow-300 font-bold">PAUSE / PASED MENU</h2>
+      <p class="text-[9px] text-slate-400">Pilih opsi navigasi di bawah ini:</p>
+      
+      <div class="space-y-2 pt-2">
+        <button id="btn-resume" class="w-full py-2 cyber-button rounded text-[10px] text-cyan-300">LANJUTKAN GAME</button>
+        <button id="btn-download-rekap-menu" class="w-full py-2 cyber-button rounded text-[10px] text-emerald-400">DOWNLOAD REKAP EXCEL</button>
+        <button id="btn-restart-level" class="w-full py-2 cyber-button rounded text-[10px] text-amber-400">ULANG LEVEL INI</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 5: GAME OVER / VICTORY LEVEL -->
+  <div id="modal-gameover" class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 hidden">
+    <div class="cyber-border bg-slate-900 p-6 rounded-xl max-w-md w-full text-center space-y-4">
+      <div id="go-icon" class="text-4xl">💀</div>
+      <h2 id="go-title" class="text-base text-red-500 font-bold">GAME OVER</h2>
+      <p id="go-desc" class="text-[10px] text-slate-300 leading-relaxed"></p>
+
+      <div class="flex justify-center gap-3 pt-2">
+        <button id="btn-download-rekap-go" class="cyber-button px-3 py-2 rounded text-[10px] text-emerald-400">📊 REKAP EXCEL</button>
+        <button id="btn-retry" class="cyber-button px-4 py-2 rounded text-[10px] text-yellow-300">🔄 COBA LAGI</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-win" class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 hidden">
+    <div class="cyber-border bg-slate-900 p-6 rounded-xl max-w-md w-full text-center space-y-4">
+      <div class="text-4xl animate-bounce">🏆</div>
+      <h2 id="win-title" class="text-base text-yellow-400 font-bold">LEVEL SELESAI!</h2>
+      <p id="win-desc" class="text-[10px] text-slate-300 leading-relaxed">Selamat! Kamu berhasil menyelesaikan tantangan materi dan ujian NPC.</p>
+
+      <div class="flex justify-center gap-3 pt-2">
+        <button id="btn-download-rekap-win" class="cyber-button px-3 py-2 rounded text-[10px] text-emerald-400">📊 REKAP EXCEL</button>
+        <button id="btn-next-level" class="cyber-button px-4 py-2 rounded text-[10px] text-cyan-300">LANJUT LEVEL ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME SCRIPT ENGINE -->
+  <script>
+    /* ==========================================================================
+       1. BANK DATA 10 LEVEL INFORMATIKA & SOAL KUIS
+       ========================================================================== */
+    const GAME_LEVELS = [
+      {
+        level: 1,
+        title: "LEVEL 1: Mengenal Sistem Komputer",
+        topic: "Perangkat Keras & Utama Komputer",
+        materi: `Komputer terdiri dari 3 elemen utama: Hardware (Perangkat Keras), Software (Perangkat Lunak), dan Brainware (Pengguna).<br><br>
+        <strong>Hardware Utama:</strong><br>
+        • <strong>CPU (Central Processing Unit):</strong> Otak utama pemroses data dan instruksi.<br>
+        • <strong>RAM:</strong> Memori penyimpanan sementara saat komputer menyala.<br>
+        • <strong>Storage (HDD/SSD):</strong> Penyimpanan data permanen.<br>
+        • <strong>Input Device:</strong> Keyboard, Mouse.<br>
+        • <strong>Output Device:</strong> Monitor, Printer.`,
+        question: "Manakah komponen hardware yang berfungsi sebagai 'Otak Utama' pemroses seluruh instruksi komputer?",
+        options: [
+          { text: "A. RAM (Random Access Memory)", correct: false },
+          { text: "B. CPU (Central Processing Unit)", correct: true },
+          { text: "C. Harddisk SSD", correct: false },
+          { text: "D. Power Supply Unit", correct: false }
+        ]
+      },
+      {
+        level: 2,
+        title: "LEVEL 2: Memori & Penyimpanan",
+        topic: "RAM vs ROM & Harddisk/SSD",
+        materi: `Memori komputer dibagi menjadi memori utama dan penyimpanan sekunder:<br><br>
+        • <strong>RAM (Volatile):</strong> Data hilang jika listrik/komputer dimatikan.<br>
+        • <strong>ROM (Non-Volatile):</strong> Menyimpan instruksi boot (BIOS) secara permanen.<br>
+        • <strong>SSD (Solid State Drive):</strong> Menggunakan microchip flash, jauh lebih cepat dibanding HDD magnetik.`,
+        question: "Mengapa RAM disebut bersifat 'Volatile'?",
+        options: [
+          { text: "A. Harganya sangat mahal", correct: false },
+          { text: "B. Data disimpan secara permanen", correct: false },
+          { text: "C. Data di dalamnya akan hilang saat komputer dimatikan", correct: true },
+          { text: "D. Hanya bisa dibaca dan tidak bisa diubah", correct: false }
+        ]
+      },
+      {
+        level: 3,
+        title: "LEVEL 3: Jaringan Komputer & Internet",
+        topic: "LAN, WAN & IP Address",
+        materi: `Jaringan komputer memungkinkan perangkat saling berkomunikasi dan berbagi data.<br><br>
+        • <strong>LAN (Local Area Network):</strong> Jaringan area lokal seperti dalam satu ruangan/laboratorium.<br>
+        • <strong>WAN (Wide Area Network):</strong> Jaringan luas antar negara/benua (contoh: Internet).<br>
+        • <strong>IP Address:</strong> Alamat numerik unik yang mengidentifikasi setiap komputer di jaringan.`,
+        question: "Jenis jaringan komputer yang digunakan untuk menginterkoneksikan komputer dalam satu ruangan lab dinamakan?",
+        options: [
+          { text: "A. LAN (Local Area Network)", correct: true },
+          { text: "B. WAN (Wide Area Network)", correct: false },
+          { text: "C. MAN (Metropolitan Area Network)", correct: false },
+          { text: "D. PAN (Personal Area Network)", correct: false }
+        ]
+      },
+      {
+        level: 4,
+        title: "LEVEL 4: Algoritma & Pemrograman Dasar",
+        topic: "Struktur Logika & Percabangan (If-Else)",
+        materi: `<strong>Algoritma</strong> adalah urutan langkah-langkah logis dan sistematis untuk menyelesaikan masalah.<br><br>
+        • <strong>Runtutan (Sequence):</strong> Instruksi dijalankan baris demi baris.<br>
+        • <strong>Percabangan (Selection):</strong> Keputusan menggunakan kondisi IF - ELSE.<br>
+        • <strong>Perulangan (Looping):</strong> Mengulang instruksi selama kondisi terpenuhi (FOR / WHILE).`,
+        question: "Struktur kontrol algoritma yang digunakan untuk memilih salah satu dari beberapa opsi keputusan adalah...",
+        options: [
+          { text: "A. Looping (Perulangan)", correct: false },
+          { text: "B. Variable (Variabel)", correct: false },
+          { text: "C. Percabangan (Condition/If-Else)", correct: true },
+          { text: "D. Input Array", correct: false }
+        ]
+      },
+      {
+        level: 5,
+        title: "LEVEL 5: Keamanan Siber (Cybersecurity)",
+        topic: "Proteksi Data & Phishing",
+        materi: `Keamanan siber melindungi sistem dan data dari serangan digital:<br><br>
+        • <strong>Password Kuat:</strong> Kombinasi huruf besar, kecil, angka, dan simbol.<br>
+        • <strong>Phishing:</strong> Kejahatan penipuan melalui email/link palsu untuk mencuri kredensial akun.<br>
+        • <strong>Firewall:</strong> Sistem pembatas dan penyaring lalu lintas data berbahaya.`,
+        question: "Tindakan penipuan cyber untuk mencuri username/password dengan cara menyamar sebagai pihak resmi dinamakan?",
+        options: [
+          { text: "A. Deface", correct: false },
+          { text: "B. Phishing", correct: true },
+          { text: "C. Formatting", correct: false },
+          { text: "D. Booting", correct: false }
+        ]
+      },
+      {
+        level: 6,
+        title: "LEVEL 6: Basis Data (Database)",
+        topic: "Tabel, Record & SQL",
+        materi: `Database adalah kumpulan data terstruktur yang dikelola secara digital.<br><br>
+        • <strong>Tabel:</strong> Terdiri dari Kolom (Field) dan Baris (Record).<br>
+        • <strong>Primary Key:</strong> Identifikasi unik yang tidak boleh sama pada setiap baris data.<br>
+        • <strong>SQL (Structured Query Language):</strong> Bahasa standar untuk mengambil data (SELECT, INSERT, UPDATE, DELETE).`,
+        question: "Perintah standar SQL yang digunakan untuk mengambil dan menampilkan data dari tabel adalah...",
+        options: [
+          { text: "A. GET", correct: false },
+          { text: "B. FETCH", correct: false },
+          { text: "C. SELECT", correct: true },
+          { text: "D. SEARCH", correct: false }
+        ]
+      },
+      {
+        level: 7,
+        title: "LEVEL 7: Sistem Operasi (Operating System)",
+        topic: "Manajemen Sumber Daya & GUI",
+        materi: `Sistem Operasi (OS) adalah perangkat lunak sistem utama penerjemah hardware dan software aplikasi.<br><br>
+        • <strong>Tugas OS:</strong> Manajemen memori, prosesor, file sistem, dan perangkat I/O.<br>
+        • <strong>Contoh OS:</strong> Windows, Linux, macOS, Android.<br>
+        • <strong>Open Source:</strong> Kode sumber OS bebas dimodifikasi (contoh: Linux).`,
+        question: "Manakah di bawah ini contoh sistem operasi yang bersifat Open Source?",
+        options: [
+          { text: "A. Microsoft Windows 11", correct: false },
+          { text: "B. Apple macOS", correct: false },
+          { text: "C. Linux", correct: true },
+          { text: "D. iOS", correct: false }
+        ]
+      },
+      {
+        level: 8,
+        title: "LEVEL 8: Cloud Computing & Komputasi Awan",
+        topic: "Layanan SaaS, PaaS, IaaS",
+        materi: `Cloud computing menyediakan layanan komputasi melalui internet tanpa harus memiliki server fisik sendiri.<br><br>
+        • <strong>SaaS (Software as a Service):</strong> Aplikasi siap pakai (Contoh: Google Docs, Gmail).<br>
+        • <strong>Cloud Storage:</strong> Media simpan online (Google Drive, OneDrive).`,
+        question: "Layanan aplikasi yang langsung dapat diakses pengguna melalui browser tanpa instalasi fisik dinamakan...",
+        options: [
+          { text: "A. SaaS (Software as a Service)", correct: true },
+          { text: "B. IaaS (Infrastructure as a Service)", correct: false },
+          { text: "C. Offline Office", correct: false },
+          { text: "D. Local Storage", correct: false }
+        ]
+      },
+      {
+        level: 9,
+        title: "LEVEL 9: Kecerdasan Buatan (AI)",
+        topic: "Artificial Intelligence & Machine Learning",
+        materi: `AI adalah simulasi kecerdasan manusia yang dimodelkan dalam mesin komputer.<br><br>
+        • <strong>Machine Learning:</strong> Kemampuan komputer belajar dari data pola tanpa diprogram secara eksplisit.<br>
+        • <strong>Computer Vision:</strong> Kemampuan komputer mengenali dan memproses gambar/video.`,
+        question: "Cabang AI yang fokus memberikan kemampuan komputer untuk belajar dari kumpulan data dinamakan?",
+        options: [
+          { text: "A. Virtual Reality", correct: false },
+          { text: "B. Machine Learning", correct: true },
+          { text: "C. Cyber Security", correct: false },
+          { text: "D. Web Development", correct: false }
+        ]
+      },
+      {
+        level: 10,
+        title: "LEVEL 10: Etika Digital & Hak Cipta",
+        topic: "HAKI & Netiket",
+        materi: `Etika dunia digital mencakup aturan berperilaku yang santun serta menghargai karya cipta orang lain.<br><br>
+        • <strong>HAKI (Hak Atas Kekayaan Intelektual):</strong> Perlindungan hukum atas karya cipta aplikasi/software.<br>
+        • <strong>Plagiarisme:</strong> Mengakui karya orang lain sebagai karya sendiri.`,
+        question: "Tindakan mengambil karya cipta software atau tulisan orang lain tanpa izin dinamakan...",
+        options: [
+          { text: "A. Lisensi Open Source", correct: false },
+          { text: "B. Plagiarisme / Pembajakan", correct: true },
+          { text: "C. Download Legal", correct: false },
+          { text: "D. Backup Data", correct: false }
+        ]
+      }
+    ];
+
+    /* ==========================================================================
+       2. REKAP STATE PEMAIN & PENGUNDUHAN EXCEL
+       ========================================================================== */
+    let playerData = {
+      name: "",
+      classGroup: "",
+      score: 0,
+      coins: 0,
+      lives: 3,
+      currentLevelIndex: 0,
+      quizAnswers: [] // Array of { level, question, answer, isCorrect, timestamp }
+    };
+
+    function exportDataToExcel() {
+      if (typeof XLSX === 'undefined') {
+        alert("Pustaka SheetJS belum dimuat secara sempurna!");
+        return;
+      }
+
+      // Sheet 1: Data Ringkasan Pemain
+      const summaryData = [
+        {
+          "Nama Pemain": playerData.name || "Prajurit",
+          "Kelas / Rombel": playerData.classGroup || "-",
+          "Level Tertinggi": `Level ${playerData.currentLevelIndex + 1}`,
+          "Total Skor ⭐": playerData.score,
+          "Koin Terkumpul 🪙": playerData.coins,
+          "Sisa Nyawa ❤️": playerData.lives,
+          "Tanggal Rekap": new Date().toLocaleString("id-ID")
+        }
+      ];
+
+      // Sheet 2: Rekap Jawaban Kuis Soal
+      const quizData = playerData.quizAnswers.map((q, idx) => ({
+        "No": idx + 1,
+        "Nama Pemain": playerData.name,
+        "Kelas": playerData.classGroup,
+        "Level": q.level,
+        "Pertanyaan Kuis": q.question,
+        "Jawaban Pemain": q.answer,
+        "Hasil": q.isCorrect ? "BENAR ✅" : "SALAH ❌",
+        "Waktu": q.timestamp
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+      const wsQuiz = XLSX.utils.json_to_sheet(quizData.length > 0 ? quizData : [
+        { "Pesan": "Belum ada soal kuis yang dijawab." }
+      ]);
+
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Ringkasan Pemain");
+      XLSX.utils.book_append_sheet(wb, wsQuiz, "Rekap Jawaban Kuis");
+
+      const fileName = `Rekap_InformatikaQuest_${(playerData.name || "Prajurit").replace(/\s+/g, '_')}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+    }
+
+    /* ==========================================================================
+       3. SOUND SYNTHESIZER (WEB AUDIO API)
+       ========================================================================== */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      }
+      playJump() {
+        if (this.muted || !this.ctx) return;
+        let osc = this.ctx.createOscillator();
+        let gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.15);
+      }
+      playCoin() {
+        if (this.muted || !this.ctx) return;
+        let osc = this.ctx.createOscillator();
+        let gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+        osc.frequency.setValueAtTime(900, this.ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.2);
+      }
+      playHurt() {
+        if (this.muted || !this.ctx) return;
+        let osc = this.ctx.createOscillator();
+        let gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(60, this.ctx.currentTime + 0.25);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.25);
+      }
+      playWin() {
+        if (this.muted || !this.ctx) return;
+        const notes = [400, 500, 600, 800];
+        notes.forEach((freq, idx) => {
+          let osc = this.ctx.createOscillator();
+          let gain = this.ctx.createGain();
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.1);
+          gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.1);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.1 + 0.15);
+          osc.start(this.ctx.currentTime + idx * 0.1);
+          osc.stop(this.ctx.currentTime + idx * 0.1 + 0.15);
+        });
+      }
+    }
+    const audio = new SoundEngine();
+
+    /* ==========================================================================
+       4. GAME CANVAS ENGINE & VISUAL DRAWING
+       ========================================================================== */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let gameState = 'START'; // START, PLAYING, MATERI_MODAL, QUIZ_MODAL, MENU, GAMEOVER, WIN
+    let currentLevelData = GAME_LEVELS[0];
+
+    // Status Level Progress
+    let levelState = {
+      hasReadMateri: false,
+      hasPassedQuiz: false,
+      hasKey: false
+    };
+
+    // Controller Inputs
+    const keys = { left: false, right: false, up: false, down: false, jump: false, interact: false };
+
+    // Particles Biner Matrix Background
+    let binaryParticles = [];
+    function initBinaryParticles() {
+      binaryParticles = [];
+      for (let i = 0; i < 40; i++) {
+        binaryParticles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          val: Math.random() > 0.5 ? '1' : '0',
+          speed: 0.5 + Math.random() * 1.2,
+          opacity: 0.15 + Math.random() * 0.35
+        });
+      }
+    }
+
+    // Canvas Size Adjuster
+    function resizeCanvas() {
+      canvas.width = 900;
+      canvas.height = 460;
+      initBinaryParticles();
+    }
+
+    /* ==========================================================================
+       5. PLAYER SPRITE: MILITARY ARMY SOLDIER WITH TACTICAL BACKPACK & HELMET
+       ========================================================================== */
+    class Player {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 30;
+        this.height = 44;
+        this.vx = 0;
+        this.vy = 0;
+        this.speed = 6.0; // Pergerakan disempurnakan lebih cepat & responsif
+        this.jumpPower = -13.5; // Lompatan jauh lebih tinggi!
+        this.gravity = 0.38; // Gravitasi lebih ringan agar lompatan leluasa
+        this.isGrounded = false;
+        this.isClimbing = false;
+        this.jumpCount = 0; // Fitur Double Jump
+        this.maxJumps = 2;  // Boleh melompat 2 kali di udara
+        this.facing = 'right'; // 'left' or 'right'
+        this.animFrame = 0;
+      }
+
+      update(platforms, ladders) {
+        // Climbing Check
+        let onLadder = false;
+        ladders.forEach(lad => {
+          if (this.x + this.width > lad.x && this.x < lad.x + lad.width &&
+              this.y + this.height > lad.y && this.y < lad.y + lad.height) {
+            onLadder = true;
+          }
+        });
+
+        // Bebas keluar dari tangga jika menekan lompat atau panah kiri/kanan
+        if (this.isClimbing && (keys.jump || keys.left || keys.right)) {
+          this.isClimbing = false;
+        }
+
+        if (onLadder && (keys.up || keys.down) && !this.isClimbing) {
+          this.isClimbing = true;
+        }
+        if (!onLadder) this.isClimbing = false;
+
+        if (this.isClimbing) {
+          this.vy = 0;
+          if (keys.up) this.vy = -5.5; // Kecepatan memanjat dinaikkan
+          if (keys.down) this.vy = 5.5;
+          // Memungkinkan pergerakan menyamping saat di tangga
+          if (keys.left) this.vx = -this.speed * 0.7;
+          else if (keys.right) this.vx = this.speed * 0.7;
+          else this.vx = 0;
+          this.jumpCount = 0;
+        } else {
+          // Horizontal Movement
+          if (keys.left) {
+            this.vx = -this.speed;
+            this.facing = 'left';
+          } else if (keys.right) {
+            this.vx = this.speed;
+            this.facing = 'right';
+          } else {
+            this.vx = 0;
+          }
+
+          // Jump logic with Double Jump support
+          if (keys.jump && !keys.jumpHandled) {
+            if (this.isGrounded || this.jumpCount < this.maxJumps) {
+              this.vy = this.jumpPower;
+              this.isGrounded = false;
+              this.jumpCount++;
+              keys.jumpHandled = true; // Prevents continuous jump triggering on hold
+              audio.playJump();
+            }
+          }
+
+          // Reset jump handled status when jump key released
+          if (!keys.jump) {
+            keys.jumpHandled = false;
+          }
+
+          // Gravity application
+          this.vy += this.gravity;
+        }
+
+        // Apply velocities
+        this.x += this.vx;
+        this.handleCollisionX(platforms);
+        this.y += this.vy;
+        this.handleCollisionY(platforms);
+
+        // Screen Borders
+        if (this.x < 0) this.x = 0;
+        if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
+
+        // Pit Fall Check (Loss of Life)
+        if (this.y > canvas.height + 50) {
+          this.takeDamage();
+        }
+
+        // Anim Frame Counter
+        if (this.vx !== 0 || this.vy !== 0) {
+          this.animFrame += 0.25;
+        }
+      }
+
+      handleCollisionX(platforms) {
+        platforms.forEach(p => {
+          if (this.x < p.x + p.w && this.x + this.width > p.x &&
+              this.y < p.y + p.h && this.y + this.height > p.y) {
+            if (this.vx > 0) this.x = p.x - this.width;
+            if (this.vx < 0) this.x = p.x + p.w;
+          }
+        });
+      }
+
+      handleCollisionY(platforms) {
+        platforms.forEach(p => {
+          if (this.x < p.x + p.w && this.x + this.width > p.x &&
+              this.y < p.y + p.h && this.y + this.height > p.y) {
+            if (this.vy > 0) {
+              this.y = p.y - this.height;
+              this.vy = 0;
+              this.isGrounded = true;
+              this.jumpCount = 0; // Reset double jump upon landing
+            } else if (this.vy < 0) {
+              this.y = p.y + p.h;
+              this.vy = 0;
+            }
+          }
+        });
+      }
+
+      takeDamage() {
+        audio.playHurt();
+        playerData.lives -= 1;
+        updateUI();
+        if (playerData.lives <= 0) {
+          triggerGameOver("Kamu telah kehabisan seluruh nyawa! Belajar lagi materi dan uji ketangkasanmu!");
+        } else {
+          // Respawn to start
+          this.x = 40;
+          this.y = 340;
+          this.vx = 0;
+          this.vy = 0;
+          this.jumpCount = 0;
+        }
+      }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        const dir = this.facing === 'left' ? -1 : 1;
+        if (dir === -1) {
+          ctx.translate(this.width, 0);
+          ctx.scale(-1, 1);
+        }
+
+        // 1. RANSEL TEMPUL TACTICAL (BACKPACK ARMY)
+        ctx.fillStyle = "#334155"; // Dark military grey canvas
+        ctx.fillRect(-6, 14, 8, 18);
+        ctx.fillStyle = "#1e293b";
+        ctx.fillRect(-6, 16, 8, 4); // Pocket strap
+
+        // 2. BOOTS MILITER
+        ctx.fillStyle = "#0f172a";
+        const walkOffset = Math.sin(this.animFrame) * 3;
+        ctx.fillRect(4 + walkOffset, 36, 10, 8);
+        ctx.fillRect(16 - walkOffset, 36, 10, 8);
+
+        // 3. CELANA ARMY MILITER (CAMO GREEN)
+        ctx.fillStyle = "#3f6212";
+        ctx.fillRect(4, 24, 22, 13);
+        // Knee pads (Bantalan lutut)
+        ctx.fillStyle = "#1e293b";
+        ctx.fillRect(6, 29, 6, 5);
+        ctx.fillRect(18, 29, 6, 5);
+
+        // 4. ROMPI TACTICAL ARMY (COMBAT VEST)
+        ctx.fillStyle = "#4d7c0f"; // Camo Green Shirt
+        ctx.fillRect(2, 10, 26, 15);
+        ctx.fillStyle = "#1e293b"; // Tactical Armor Vest
+        ctx.fillRect(6, 12, 18, 12);
+        ctx.fillStyle = "#ea580c"; // Badge emblem
+        ctx.fillRect(8, 14, 4, 3);
+
+        // 5. KEPALA & HELM TEMPUL TACTICAL
+        ctx.fillStyle = "#fde047"; // Skin
+        ctx.fillRect(8, 4, 14, 8);
+
+        // HELM MILITER (TACTICAL HELMET)
+        ctx.fillStyle = "#365314"; // Olive helmet dome
+        ctx.fillRect(5, 0, 20, 7);
+        ctx.fillRect(4, 3, 22, 3);
+        // NIGHT VISION / CYBER VISOR GOGGLE
+        ctx.fillStyle = "#06b6d4"; // Glowing cyan lens
+        ctx.fillRect(12, 5, 10, 4);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(18, 6, 2, 2); // Lens glint
+
+        ctx.restore();
+      }
+    }
+
+    /* ==========================================================================
+       6. LEVEL MAP BUILDER: PLATFORMS, LADDERS, MONITOR, SERVERS, NPC & ITEMS
+       ========================================================================== */
+    let player = new Player(40, 340);
+
+    let platforms = [
+      // Ground floor with pit
+      { x: 0, y: 400, w: 430, h: 60 },
+      { x: 480, y: 400, w: 420, h: 60 },
+
+      // Mid platforms & helper steps (Expanded for easier movement)
+      { x: 100, y: 320, w: 170, h: 16 },
+      { x: 220, y: 250, w: 90, h: 16 },  // Helper step for high jumps
+      { x: 310, y: 190, w: 250, h: 16 }, // Top center computer monitor platform
+      { x: 570, y: 270, w: 220, h: 16 },
+      { x: 720, y: 170, w: 170, h: 16 }  // High right platform
+    ];
+
+    let ladders = [
+      { x: 150, y: 320, width: 24, height: 80 },
+      { x: 420, y: 200, width: 24, height: 200 }, // Long Ladder straight to top
+      { x: 610, y: 280, width: 24, height: 120 }
+    ];
+
+    let coins = [
+      { x: 140, y: 290, collected: false },
+      { x: 180, y: 290, collected: false },
+      { x: 350, y: 170, collected: false },
+      { x: 480, y: 170, collected: false },
+      { x: 640, y: 250, collected: false },
+      { x: 780, y: 150, collected: false }
+    ];
+
+    // Interactive Objects
+    const infoBoard = { x: 200, y: 275, w: 36, h: 45 };
+    const npcProf = { x: 800, y: 345, w: 32, h: 55 };
+    const exitPortal = { x: 840, y: 120, w: 40, h: 60 };
+
+    /* ==========================================================================
+       7. RENDER FUNCTIONS FOR CYBER LAB ENVIRONMENT
+       ========================================================================== */
+    function drawBackground() {
+      // Dark cyber matrix gradient
+      let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      grad.addColorStop(0, '#060814');
+      grad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Grid Pattern
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.08)';
+      ctx.lineWidth = 1;
+      const gridSize = 24;
+      for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      // Matrix Binary rain particles
+      ctx.font = '12px "VT323", monospace';
+      binaryParticles.forEach(p => {
+        ctx.fillStyle = `rgba(6, 182, 212, ${p.opacity})`;
+        ctx.fillText(p.val, p.x, p.y);
+        p.y += p.speed;
+        if (p.y > canvas.height) {
+          p.y = -10;
+          p.x = Math.random() * canvas.width;
+        }
+      });
+    }
+
+    function drawPlatforms() {
+      platforms.forEach(p => {
+        // Platform Body
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(p.x, p.y, p.w, p.h);
+
+        // Neon Top Edge Border
+        ctx.fillStyle = '#06b6d4';
+        ctx.fillRect(p.x, p.y, p.w, 4);
+
+        // Grid dots inside platforms (Pixel Detail)
+        ctx.fillStyle = '#1e293b';
+        for (let bx = p.x + 6; bx < p.x + p.w - 6; bx += 14) {
+          for (let by = p.y + 8; by < p.y + p.h - 6; by += 14) {
+            ctx.fillRect(bx, by, 3, 3);
+          }
+        }
+      });
+    }
+
+    function drawLadders() {
+      ladders.forEach(l => {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 3;
+        // Side rails
+        ctx.beginPath();
+        ctx.moveTo(l.x, l.y);
+        ctx.lineTo(l.x, l.y + l.height);
+        ctx.moveTo(l.x + l.width, l.y);
+        ctx.lineTo(l.x + l.width, l.y + l.height);
+        ctx.stroke();
+
+        // Steps
+        for (let sy = l.y + 8; sy < l.y + l.height; sy += 12) {
+          ctx.beginPath();
+          ctx.moveTo(l.x, sy);
+          ctx.lineTo(l.x + l.width, sy);
+          ctx.stroke();
+        }
+      });
+    }
+
+    function drawDecorations() {
+      // 1. Server Racks (Background Deco)
+      const servers = [
+        { x: 70, y: 340 },
+        { x: 310, y: 340 },
+        { x: 670, y: 340 }
+      ];
+      servers.forEach(s => {
+        ctx.fillStyle = '#1e1b4b';
+        ctx.fillRect(s.x, s.y, 32, 60);
+        ctx.strokeStyle = '#4338ca';
+        ctx.strokeRect(s.x, s.y, 32, 60);
+
+        // Server blinking LED lights
+        for (let i = 0; i < 4; i++) {
+          ctx.fillStyle = (Math.sin(Date.now() / 200 + i + s.x) > 0) ? '#06b6d4' : '#ef4444';
+          ctx.fillRect(s.x + 6, s.y + 10 + i * 12, 4, 4);
+          ctx.fillStyle = '#f59e0b';
+          ctx.fillRect(s.x + 14, s.y + 10 + i * 12, 4, 4);
+        }
+      });
+
+      // 2. Monitor CRT Komputer di atas Platform
+      const monitors = [
+        { x: 390, y: 154 },
+        { x: 780, y: 134 }
+      ];
+      monitors.forEach(m => {
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(m.x, m.y, 32, 26); // Screen frame
+        ctx.fillStyle = '#0284c7';
+        ctx.fillRect(m.x + 3, m.y + 3, 26, 20); // Screen glow
+        ctx.fillStyle = '#7dd3fc';
+        ctx.fillRect(m.x + 6, m.y + 6, 12, 3); // Code line glow
+        ctx.fillRect(m.x + 6, m.y + 11, 18, 3);
+        // Stand
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(m.x + 12, m.y + 26, 8, 10);
+      });
+
+      // 3. Papan INFO MATERI (Terlihat di gambar referensi)
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(infoBoard.x, infoBoard.y, infoBoard.w, infoBoard.h);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(infoBoard.x, infoBoard.y, infoBoard.w, infoBoard.h);
+      ctx.fillStyle = '#fef08a';
+      ctx.font = '9px "Press Start 2P"';
+      ctx.fillText('INFO', infoBoard.x + 2, infoBoard.y + 26);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '8px "Press Start 2P"';
+      ctx.fillText('📘 MATERI', infoBoard.x - 8, infoBoard.y - 8);
+
+      // 4. Bendera Checkpoint Merah
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(540, 350, 4, 50);
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(544, 350);
+      ctx.lineTo(564, 360);
+      ctx.lineTo(544, 370);
+      ctx.fill();
+
+      // 5. NPC PROF. BIT
+      ctx.fillStyle = '#581c87'; // Jubah Ungu
+      ctx.fillRect(npcProf.x, npcProf.y, npcProf.w, npcProf.h);
+      ctx.fillStyle = '#fde047'; // Head
+      ctx.fillRect(npcProf.x + 6, npcProf.y - 12, 20, 14);
+      ctx.fillStyle = '#ffffff'; // Pixel Glasses
+      ctx.fillRect(npcProf.x + 8, npcProf.y - 8, 16, 4);
+
+      // Text di atas NPC Prof Bit
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '8px "Press Start 2P"';
+      ctx.fillText('Prof. Bit', npcProf.x - 8, npcProf.y - 28);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText('! UJIAN', npcProf.x - 4, npcProf.y - 18);
+
+      // 6. PORTAL FINISH LEVEL
+      ctx.fillStyle = levelState.hasKey ? '#10b981' : '#64748b';
+      ctx.fillRect(exitPortal.x, exitPortal.y, exitPortal.w, exitPortal.h);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(exitPortal.x + 6, exitPortal.y + 6, exitPortal.w - 12, exitPortal.h - 12);
+
+      ctx.fillStyle = levelState.hasKey ? '#34d399' : '#f43f5e';
+      ctx.font = '8px "Press Start 2P"';
+      ctx.fillText(levelState.hasKey ? 'PORTAL' : 'LOCKED', exitPortal.x - 6, exitPortal.y - 8);
+    }
+
+    function drawCoins() {
+      coins.forEach(c => {
+        if (!c.collected) {
+          ctx.fillStyle = '#facc15';
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#b45309';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      });
+    }
+
+    /* ==========================================================================
+       8. LOGIKA INTERAKSI GAME & COLLISION DETECTOR
+       ========================================================================== */
+    function checkInteractions() {
+      // 1. Koin Collection
+      coins.forEach(c => {
+        if (!c.collected) {
+          let dist = Math.hypot((player.x + player.width / 2) - c.x, (player.y + player.height / 2) - c.y);
+          if (dist < 20) {
+            c.collected = true;
+            playerData.coins += 1;
+            playerData.score += 10;
+            audio.playCoin();
+            updateUI();
+          }
+        }
+      });
+
+      // 2. Papan INFO MATERI Interaction
+      if (Math.abs((player.x + player.width / 2) - (infoBoard.x + infoBoard.w / 2)) < 35 &&
+          Math.abs((player.y + player.height / 2) - (infoBoard.y + infoBoard.h / 2)) < 35) {
+        if (!levelState.hasReadMateri) {
+          openMateriModal();
+        }
+      }
+
+      // 3. NPC Prof. Bit Kuis Interaction
+      if (Math.abs((player.x + player.width / 2) - (npcProf.x + npcProf.w / 2)) < 40 &&
+          Math.abs((player.y + player.height / 2) - (npcProf.y + npcProf.h / 2)) < 40) {
+        if (!levelState.hasReadMateri) {
+          // Warning: Must read materi first!
+          showNotification("⚠️ Silakan baca MATERI di papan INFO terlebih dahulu!");
+        } else if (!levelState.hasPassedQuiz) {
+          openQuizModal();
+        }
+      }
+
+      // 4. Portal Finish Level Interaction
+      if (Math.abs((player.x + player.width / 2) - (exitPortal.x + exitPortal.w / 2)) < 35 &&
+          Math.abs((player.y + player.height / 2) - (exitPortal.y + exitPortal.h / 2)) < 35) {
+        if (levelState.hasKey) {
+          audio.playWin();
+          triggerLevelWin();
+        } else {
+          showNotification("🔒 Portal Terkunci! Selesaikan Ujian Prof. Bit untuk mendapatkan KUNCI!");
+        }
+      }
+    }
+
+    let notifMessage = "";
+    let notifTimer = 0;
+    function showNotification(msg) {
+      notifMessage = msg;
+      notifTimer = 120; // 2 Seconds
+    }
+
+    function drawNotification() {
+      if (notifTimer > 0) {
+        notifTimer--;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.fillRect(canvas.width / 2 - 240, 20, 480, 32);
+        ctx.strokeStyle = '#06b6d4';
+        ctx.strokeRect(canvas.width / 2 - 240, 20, 480, 32);
+
+        ctx.fillStyle = '#fef08a';
+        ctx.font = '9px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText(notifMessage, canvas.width / 2, 40);
+        ctx.textAlign = 'left';
+      }
+    }
+
+    /* ==========================================================================
+       9. UI MODAL HANDLERS & NAVIGATION
+       ========================================================================== */
+    function updateUI() {
+      const pName = document.getElementById('hud-player-name');
+      if (pName) pName.innerText = playerData.name || "Prajurit";
+      
+      const pClass = document.getElementById('hud-player-class');
+      if (pClass) pClass.innerText = playerData.classGroup || "Kelas";
+
+      const lTitle = document.getElementById('hud-level-title');
+      if (lTitle) lTitle.innerText = currentLevelData.title;
+
+      const hCoins = document.getElementById('hud-coins');
+      if (hCoins) hCoins.innerText = playerData.coins;
+
+      const hStars = document.getElementById('hud-stars');
+      if (hStars) hStars.innerText = playerData.score;
+
+      const hKey = document.getElementById('hud-has-key');
+      if (hKey) hKey.innerText = levelState.hasKey ? "1" : "0";
+
+      // Lives Hearts
+      const lContainer = document.getElementById('hud-lives-container');
+      if (lContainer) {
+        let hearts = "";
+        for (let i = 0; i < playerData.lives; i++) hearts += "❤️";
+        lContainer.innerText = hearts || "💀";
+      }
+
+      // Status Box Indicators (Null-guarded to prevent errors)
+      const stMateri = document.getElementById('status-materi');
+      if (stMateri) {
+        stMateri.innerText = levelState.hasReadMateri ? "Selesai ✅" : "Belum";
+        stMateri.className = levelState.hasReadMateri ? "text-emerald-400 font-bold" : "text-yellow-400 font-bold";
+      }
+
+      const stUjian = document.getElementById('status-ujian');
+      if (stUjian) {
+        stUjian.innerText = levelState.hasPassedQuiz ? "Lulus ✅" : "Belum Lulus";
+        stUjian.className = levelState.hasPassedQuiz ? "text-emerald-400 font-bold" : "text-yellow-400 font-bold";
+      }
+
+      const stKunci = document.getElementById('status-kunci');
+      if (stKunci) {
+        stKunci.innerText = levelState.hasKey ? "Terbuka 🔑" : "Terkunci";
+        stKunci.className = levelState.hasKey ? "text-emerald-400 font-bold" : "text-red-400 font-bold";
+      }
+    }
+
+    function openMateriModal() {
+      gameState = 'MATERI_MODAL';
+      document.getElementById('materi-title').innerText = `📖 MATERI: ${currentLevelData.title}`;
+      document.getElementById('materi-body').innerHTML = currentLevelData.materi;
+      document.getElementById('modal-materi').classList.remove('hidden');
+    }
+
+    document.getElementById('btn-read-done').onclick = () => {
+      levelState.hasReadMateri = true;
+      document.getElementById('modal-materi').classList.add('hidden');
+      gameState = 'PLAYING';
+      updateUI();
+      showNotification(" Great! Kamu telah memahami materi. Sekarang hubungi Prof. Bit!");
+    };
+
+    document.getElementById('close-materi-btn').onclick = () => {
+      document.getElementById('modal-materi').classList.add('hidden');
+      gameState = 'PLAYING';
+    };
+
+    document.getElementById('btn-materi').onclick = () => {
+      openMateriModal();
+    };
+
+    function openQuizModal() {
+      gameState = 'QUIZ_MODAL';
+      document.getElementById('quiz-question').innerText = currentLevelData.question;
+      const optsContainer = document.getElementById('quiz-options');
+      optsContainer.innerHTML = '';
+      document.getElementById('quiz-feedback').classList.add('hidden');
+
+      currentLevelData.options.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = "w-full text-left p-3 rounded bg-slate-800 border border-cyan-500/50 hover:bg-cyan-950 hover:border-cyan-400 text-slate-200 transition-all font-vt text-lg";
+        btn.innerText = opt.text;
+        btn.onclick = () => submitQuizAnswer(opt, idx);
+        optsContainer.appendChild(btn);
+      });
+
+      document.getElementById('modal-quiz').classList.remove('hidden');
+    }
+
+    function submitQuizAnswer(selectedOption, optionIndex) {
+      const isCorrect = selectedOption.correct;
+      const feedback = document.getElementById('quiz-feedback');
+
+      // Rekap jawaban ke array data
+      playerData.quizAnswers.push({
+        level: currentLevelData.level,
+        question: currentLevelData.question,
+        answer: selectedOption.text,
+        isCorrect: isCorrect,
+        timestamp: new Date().toLocaleTimeString("id-ID")
+      });
+
+      feedback.classList.remove('hidden');
+      if (isCorrect) {
+        feedback.className = "p-2 rounded text-[10px] text-center font-bold bg-emerald-950 border border-emerald-500 text-emerald-300";
+        feedback.innerText = "JAWABAN BENAR! 🎉 Kamu mendapatkan KUNCI Portal!";
+        levelState.hasPassedQuiz = true;
+        levelState.hasKey = true;
+        playerData.score += 50;
+        audio.playCoin();
+        updateUI();
+
+        setTimeout(() => {
+          document.getElementById('modal-quiz').classList.add('hidden');
+          gameState = 'PLAYING';
+          showNotification("🔑 Kunci Portal diperoleh! Pergi ke Portal paling kanan untuk lanjut!");
+        }, 1500);
+
+      } else {
+        feedback.className = "p-2 rounded text-[10px] text-center font-bold bg-red-950 border border-red-500 text-red-300";
+        feedback.innerText = "JAWABAN SALAH! ❌ Nyawa kamu berkurang 1!";
+        player.takeDamage();
+
+        setTimeout(() => {
+          document.getElementById('modal-quiz').classList.add('hidden');
+          gameState = 'PLAYING';
+        }, 1500);
+      }
+    }
+
+    function triggerGameOver(reason) {
+      gameState = 'GAMEOVER';
+      document.getElementById('go-desc').innerText = reason;
+      document.getElementById('modal-gameover').classList.remove('hidden');
+    }
+
+    function triggerLevelWin() {
+      gameState = 'WIN';
+      document.getElementById('modal-win').classList.remove('hidden');
+    }
+
+    function resetLevelState() {
+      levelState.hasReadMateri = false;
+      levelState.hasPassedQuiz = false;
+      levelState.hasKey = false;
+      player.x = 40;
+      player.y = 340;
+      player.vx = 0;
+      player.vy = 0;
+
+      coins.forEach(c => c.collected = false);
+      updateUI();
+    }
+
+    function nextLevelOrRestart() {
+      document.getElementById('modal-win').classList.add('hidden');
+      if (playerData.currentLevelIndex < GAME_LEVELS.length - 1) {
+        playerData.currentLevelIndex += 1;
+        currentLevelData = GAME_LEVELS[playerData.currentLevelIndex];
+        resetLevelState();
+        gameState = 'PLAYING';
+      } else {
+        alert(" SELAMAT! Kamu telah menyelesaikan seluruh 10 LEVEL Informatika Quest!");
+        exportDataToExcel();
+      }
+    }
+
+    function fullRestart() {
+      document.getElementById('modal-gameover').classList.add('hidden');
+      playerData.lives = 3;
+      playerData.score = 0;
+      playerData.coins = 0;
+      playerData.currentLevelIndex = 0;
+      currentLevelData = GAME_LEVELS[0];
+      resetLevelState();
+      gameState = 'PLAYING';
+    }
+
+    /* ==========================================================================
+       10. MAIN GAME LOOP & EVENT LISTENERS
+       ========================================================================== */
+    function gameLoop() {
+      if (gameState === 'PLAYING') {
+        player.update(platforms, ladders);
+        checkInteractions();
+      }
+
+      // Draw Phase
+      drawBackground();
+      drawLadders();
+      drawPlatforms();
+      drawDecorations();
+      drawCoins();
+      player.draw();
+      drawNotification();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Controls input handler
+    window.addEventListener('keydown', e => {
+      audio.init();
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
+      if (e.key === ' ' || e.key === 'Spacebar') keys.jump = true;
+    });
+
+    window.addEventListener('keyup', e => {
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = false;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = false;
+      if (e.key === ' ' || e.key === 'Spacebar') keys.jump = false;
+    });
+
+    // Touch Controls Setup untuk HP / Mobile On-Screen Gamepad
+    const bindPadButton = (id, keyName) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const pressHandler = (e) => {
+        if (e.cancelable) e.preventDefault();
+        audio.init();
+        keys[keyName] = true;
+      };
+
+      const releaseHandler = (e) => {
+        if (e.cancelable) e.preventDefault();
+        keys[keyName] = false;
+      };
+
+      el.addEventListener('touchstart', pressHandler, { passive: false });
+      el.addEventListener('touchend', releaseHandler, { passive: false });
+      el.addEventListener('touchcancel', releaseHandler, { passive: false });
+      el.addEventListener('mousedown', pressHandler);
+      el.addEventListener('mouseup', releaseHandler);
+    };
+
+    bindPadButton('pad-left', 'left');
+    bindPadButton('pad-right', 'right');
+    bindPadButton('pad-up', 'up');
+    bindPadButton('pad-down', 'down');
+    bindPadButton('pad-jump', 'jump');
+
+    // Registration Form Start Game
+    document.getElementById('form-start').onsubmit = (e) => {
+      e.preventDefault();
+      playerData.name = document.getElementById('input-name').value;
+      playerData.classGroup = document.getElementById('input-class').value;
+
+      document.getElementById('modal-start').classList.add('hidden');
+      audio.init();
+      updateUI();
+      gameState = 'PLAYING';
+    };
+
+    // Excel Export Buttons
+    document.getElementById('btn-export-excel').onclick = exportDataToExcel;
+    document.getElementById('btn-download-rekap-menu').onclick = exportDataToExcel;
+    document.getElementById('btn-download-rekap-go').onclick = exportDataToExcel;
+    document.getElementById('btn-download-rekap-win').onclick = exportDataToExcel;
+
+    document.getElementById('btn-sound').onclick = () => {
+      audio.init();
+      audio.muted = !audio.muted;
+      document.getElementById('btn-sound').innerText = audio.muted ? '🔇' : '🔊';
+    };
+
+    document.getElementById('btn-menu').onclick = () => {
+      gameState = 'MENU';
+      document.getElementById('modal-menu').classList.remove('hidden');
+    };
+
+    document.getElementById('btn-resume').onclick = () => {
+      document.getElementById('modal-menu').classList.add('hidden');
+      gameState = 'PLAYING';
+    };
+
+    document.getElementById('btn-restart-level').onclick = () => {
+      document.getElementById('modal-menu').classList.add('hidden');
+      resetLevelState();
+      gameState = 'PLAYING';
+    };
+
+    document.getElementById('btn-retry').onclick = () => {
+      fullRestart();
+    };
+
+    document.getElementById('btn-next-level').onclick = () => {
+      nextLevelOrRestart();
+    };
+
+    // Initialize Game Engine Loop on Load
+    window.onload = () => {
+      resizeCanvas();
+      updateUI();
+      requestAnimationFrame(gameLoop);
+    };
+  </script>
+</body>
+</html>
